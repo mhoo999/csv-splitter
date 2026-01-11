@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' })
 
     // 응답 반환
-    return new NextResponse(new Blob([zipBuffer], { type: 'application/zip' }), {
+    return new Response(zipBuffer, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="split_files.zip"`,
