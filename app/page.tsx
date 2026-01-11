@@ -2,11 +2,16 @@
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react'
 
+interface SplitItem {
+  columns: string[]
+  fileName: string
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [columns, setColumns] = useState<string[]>([])
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set())
-  const [splitList, setSplitList] = useState<string[][]>([]) // 분리된 컬럼 조합 리스트
+  const [splitList, setSplitList] = useState<SplitItem[]>([]) // 분리된 컬럼 조합 리스트
   const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
   const [fileFormat, setFileFormat] = useState<string>('csv')
   const [loading, setLoading] = useState(false)
@@ -97,6 +102,12 @@ export default function Home() {
     }
   }
 
+  const generateDefaultFileName = (cols: string[]): string => {
+    return cols
+      .map((col) => col.replace(/[^a-zA-Z0-9가-힣_-]/g, '_'))
+      .join('_')
+  }
+
   const handleSplit = () => {
     if (selectedColumns.size === 0) {
       setError('최소 하나의 컬럼을 선택해야 합니다.')
@@ -104,11 +115,13 @@ export default function Home() {
     }
 
     // 선택된 컬럼들을 배열로 변환하여 리스트에 추가
-    const newItem = Array.from(selectedColumns).sort()
+    const newColumns = Array.from(selectedColumns).sort()
+    const defaultFileName = generateDefaultFileName(newColumns)
     
     // 중복 확인 (같은 컬럼 조합이 이미 있는지)
     const isDuplicate = splitList.some(
-      (item) => item.length === newItem.length && item.every((col, idx) => col === newItem[idx])
+      (item) => item.columns.length === newColumns.length && 
+                 item.columns.every((col, idx) => col === newColumns[idx])
     )
 
     if (isDuplicate) {
@@ -116,14 +129,20 @@ export default function Home() {
       return
     }
 
-    setSplitList([...splitList, newItem])
+    setSplitList([...splitList, { columns: newColumns, fileName: defaultFileName }])
     setSelectedColumns(new Set())
-    setSuccess(`리스트에 추가되었습니다! (${newItem.join(', ')})`)
+    setSuccess(`리스트에 추가되었습니다! (${newColumns.join(', ')})`)
     setTimeout(() => setSuccess(null), 2000)
   }
 
   const handleRemoveFromList = (index: number) => {
     setSplitList(splitList.filter((_, i) => i !== index))
+  }
+
+  const handleFileNameChange = (index: number, newFileName: string) => {
+    const updatedList = [...splitList]
+    updatedList[index].fileName = newFileName
+    setSplitList(updatedList)
   }
 
   const handleDownload = async () => {
@@ -179,7 +198,7 @@ export default function Home() {
 
   return (
     <div className="container">
-      <h1>📊 CSV/Excel 컬럼 분리 서비스</h1>
+      <h1>csv splitter</h1>
 
       <div
         className={`upload-area ${isDragging ? 'dragover' : ''}`}
@@ -195,16 +214,16 @@ export default function Home() {
           onChange={handleFileInputChange}
           className="upload-input"
         />
-        <div className="upload-text">📁 CSV 또는 Excel 파일을 드래그하거나 클릭하여 업로드</div>
+        <div className="upload-text">CSV 또는 Excel 파일을 드래그하거나 클릭하여 업로드</div>
         <div className="upload-hint">CSV, XLSX, XLS 형식 지원</div>
       </div>
 
-      {error && <div className="error">❌ {error}</div>}
-      {success && <div className="success">✅ {success}</div>}
+      {error && <div className="error">{error}</div>}
+      {success && <div className="success">{success}</div>}
 
       {file && (
         <div className="file-info">
-          <div className="file-name">📄 {file.name}</div>
+          <div className="file-name">{file.name}</div>
         </div>
       )}
 
@@ -241,7 +260,7 @@ export default function Home() {
             onClick={handleSplit}
             disabled={loading || selectedColumns.size === 0}
           >
-            ➕ 리스트에 추가
+            리스트에 추가
           </button>
         </div>
       )}
@@ -252,7 +271,16 @@ export default function Home() {
           <div className="split-list">
             {splitList.map((item, index) => (
               <div key={index} className="split-list-item">
-                <span className="split-list-item-columns">{item.join(', ')}</span>
+                <div className="split-list-item-content">
+                  <div className="split-list-item-columns">{item.columns.join(', ')}</div>
+                  <input
+                    type="text"
+                    className="split-list-item-filename"
+                    value={item.fileName}
+                    onChange={(e) => handleFileNameChange(index, e.target.value)}
+                    placeholder="파일명 입력"
+                  />
+                </div>
                 <button
                   className="remove-button"
                   onClick={() => handleRemoveFromList(index)}
@@ -297,7 +325,7 @@ export default function Home() {
             onClick={handleDownload}
             disabled={loading}
           >
-            {loading ? '처리 중...' : '📥 ZIP 파일로 다운로드'}
+            {loading ? '처리 중...' : 'ZIP 파일로 다운로드'}
           </button>
         </div>
       )}

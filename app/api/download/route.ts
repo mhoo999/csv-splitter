@@ -26,7 +26,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const splitItems: string[][] = JSON.parse(splitList)
+    interface SplitItem {
+      columns: string[]
+      fileName: string
+    }
+
+    const splitItems: SplitItem[] = JSON.parse(splitList)
 
     if (splitItems.length === 0) {
       return NextResponse.json(
@@ -86,7 +91,8 @@ export async function POST(request: NextRequest) {
 
     // 각 분리 항목에 대해 파일 생성
     for (let idx = 0; idx < splitItems.length; idx++) {
-      const selectedColumns = splitItems[idx]
+      const item = splitItems[idx]
+      const selectedColumns = item.columns
       
       // 선택된 컬럼만 포함하는 데이터 생성
       const filteredData = allData.map((row) => {
@@ -97,10 +103,9 @@ export async function POST(request: NextRequest) {
         return filteredRow
       })
 
-      // 파일명 생성 (컬럼명들을 _로 연결)
-      const safeFileName = selectedColumns
-        .map((col) => col.replace(/[^a-zA-Z0-9가-힣_-]/g, '_'))
-        .join('_')
+      // 파일명 생성 (사용자가 지정한 파일명 사용, 안전하게 처리)
+      const safeFileName = item.fileName
+        .replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
         .substring(0, 100) // 파일명 길이 제한
 
       if (fileFormat === 'xlsx') {

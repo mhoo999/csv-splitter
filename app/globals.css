@@ -264,11 +264,37 @@ h1 {
   background: #fafafa;
 }
 
+.split-list-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .split-list-item-columns {
   font-size: 0.9rem;
-  color: #333;
-  flex: 1;
+  color: #666;
   word-break: break-word;
+}
+
+.split-list-item-filename {
+  padding: 0.5rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 0;
+  font-size: 0.9rem;
+  background: white;
+  color: #1a1a1a;
+  width: 100%;
+  transition: border-color 0.15s ease;
+}
+
+.split-list-item-filename:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
+.split-list-item-filename::placeholder {
+  color: #999;
 }
 
 .remove-button {
