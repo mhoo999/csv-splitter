@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // 서버 사이드에서만 사용하는 패키지들
+      config.externals = config.externals || []
+    }
+    return config
   },
 }
 
