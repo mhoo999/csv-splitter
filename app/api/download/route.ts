@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ZIP 파일 생성
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' })
+    const zipBuffer = await zip.generateAsync({ type: 'uint8array' })
 
     // 응답 반환
     return new NextResponse(zipBuffer, {
