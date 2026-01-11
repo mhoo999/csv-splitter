@@ -333,6 +333,15 @@ export default function Home() {
       {loading && columns.length === 0 && (
         <div className="loading">파일을 분석하는 중...</div>
       )}
+
+      <footer className="footer">
+        <button 
+          className="coffee-button"
+          onClick={() => window.open('https://www.buymeacoffee.com', '_blank')}
+        >
+          개발자 커피 한잔 사주기
+        </button>
+      </footer>
     </div>
   )
 }
