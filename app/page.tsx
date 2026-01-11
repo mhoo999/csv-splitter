@@ -339,7 +339,7 @@ export default function Home() {
           className="coffee-button"
           onClick={() => window.open('https://www.buymeacoffee.com', '_blank')}
         >
-          개발자 커피 한잔 사주기
+          ☕ 개발자 커피 한잔 사주기
         </button>
       </footer>
     </div>
