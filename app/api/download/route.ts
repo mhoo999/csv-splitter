@@ -145,8 +145,11 @@ export async function POST(request: NextRequest) {
     // ZIP 파일 생성
     const zipBuffer = await zip.generateAsync({ type: 'uint8array' })
 
+    // ArrayBuffer로 변환
+    const arrayBuffer = zipBuffer.buffer.slice(zipBuffer.byteOffset, zipBuffer.byteOffset + zipBuffer.byteLength)
+
     // 응답 반환
-    return new Response(zipBuffer, {
+    return new Response(arrayBuffer as ArrayBuffer, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="split_files.zip"`,
