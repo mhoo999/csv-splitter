@@ -6,6 +6,9 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [columns, setColumns] = useState<string[]>([])
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set())
+  const [splitList, setSplitList] = useState<string[][]>([]) // 분리된 컬럼 조합 리스트
+  const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
+  const [fileFormat, setFileFormat] = useState<string>('csv')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -13,8 +16,9 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false)
 
   const handleFileSelect = async (selectedFile: File) => {
-    if (!selectedFile.name.endsWith('.csv')) {
-      setError('CSV 파일만 업로드할 수 있습니다.')
+    const fileName = selectedFile.name.toLowerCase()
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      setError('CSV 또는 Excel 파일만 업로드할 수 있습니다.')
       return
     }
 
@@ -22,6 +26,7 @@ export default function Home() {
     setError(null)
     setSuccess(null)
     setSelectedColumns(new Set())
+    setSplitList([])
     setLoading(true)
 
     try {
@@ -92,9 +97,38 @@ export default function Home() {
     }
   }
 
-  const handleSplit = async () => {
+  const handleSplit = () => {
     if (selectedColumns.size === 0) {
       setError('최소 하나의 컬럼을 선택해야 합니다.')
+      return
+    }
+
+    // 선택된 컬럼들을 배열로 변환하여 리스트에 추가
+    const newItem = Array.from(selectedColumns).sort()
+    
+    // 중복 확인 (같은 컬럼 조합이 이미 있는지)
+    const isDuplicate = splitList.some(
+      (item) => item.length === newItem.length && item.every((col, idx) => col === newItem[idx])
+    )
+
+    if (isDuplicate) {
+      setError('이미 같은 컬럼 조합이 리스트에 있습니다.')
+      return
+    }
+
+    setSplitList([...splitList, newItem])
+    setSelectedColumns(new Set())
+    setSuccess(`리스트에 추가되었습니다! (${newItem.join(', ')})`)
+    setTimeout(() => setSuccess(null), 2000)
+  }
+
+  const handleRemoveFromList = (index: number) => {
+    setSplitList(splitList.filter((_, i) => i !== index))
+  }
+
+  const handleDownload = async () => {
+    if (splitList.length === 0) {
+      setError('리스트에 항목이 없습니다. 먼저 컬럼을 선택하고 분리해주세요.')
       return
     }
 
@@ -110,16 +144,18 @@ export default function Home() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('columns', JSON.stringify(Array.from(selectedColumns)))
+      formData.append('splitList', JSON.stringify(splitList))
+      formData.append('encoding', encoding)
+      formData.append('fileFormat', fileFormat)
 
-      const response = await fetch('/api/split', {
+      const response = await fetch('/api/download', {
         method: 'POST',
         body: formData,
       })
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || '파일 분리에 실패했습니다.')
+        throw new Error(data.error || '파일 다운로드에 실패했습니다.')
       }
 
       // ZIP 파일 다운로드
@@ -133,9 +169,9 @@ export default function Home() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      setSuccess(`${selectedColumns.size}개의 파일이 성공적으로 생성되었습니다!`)
+      setSuccess(`${splitList.length}개의 파일이 성공적으로 생성되었습니다!`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '파일 분리 중 오류가 발생했습니다.')
+      setError(err instanceof Error ? err.message : '파일 다운로드 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -143,7 +179,7 @@ export default function Home() {
 
   return (
     <div className="container">
-      <h1>📊 CSV 컬럼 분리 서비스</h1>
+      <h1>📊 CSV/Excel 컬럼 분리 서비스</h1>
 
       <div
         className={`upload-area ${isDragging ? 'dragover' : ''}`}
@@ -155,12 +191,12 @@ export default function Home() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           onChange={handleFileInputChange}
           className="upload-input"
         />
-        <div className="upload-text">📁 CSV 파일을 드래그하거나 클릭하여 업로드</div>
-        <div className="upload-hint">CSV 형식의 파일만 지원됩니다</div>
+        <div className="upload-text">📁 CSV 또는 Excel 파일을 드래그하거나 클릭하여 업로드</div>
+        <div className="upload-hint">CSV, XLSX, XLS 형식 지원</div>
       </div>
 
       {error && <div className="error">❌ {error}</div>}
@@ -205,7 +241,63 @@ export default function Home() {
             onClick={handleSplit}
             disabled={loading || selectedColumns.size === 0}
           >
-            {loading ? '처리 중...' : '✅ 분리하기'}
+            ➕ 리스트에 추가
+          </button>
+        </div>
+      )}
+
+      {splitList.length > 0 && (
+        <div className="split-list-section">
+          <div className="split-list-title">분리 리스트 ({splitList.length}개)</div>
+          <div className="split-list">
+            {splitList.map((item, index) => (
+              <div key={index} className="split-list-item">
+                <span className="split-list-item-columns">{item.join(', ')}</span>
+                <button
+                  className="remove-button"
+                  onClick={() => handleRemoveFromList(index)}
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="download-settings">
+            <div className="setting-group">
+              <label className="setting-label">인코딩:</label>
+              <select
+                className="setting-select"
+                value={encoding}
+                onChange={(e) => setEncoding(e.target.value)}
+              >
+                <option value="UTF-8">UTF-8</option>
+                <option value="UTF-8-BOM">UTF-8 (BOM)</option>
+                <option value="EUC-KR">EUC-KR</option>
+                <option value="CP949">CP949</option>
+              </select>
+            </div>
+
+            <div className="setting-group">
+              <label className="setting-label">파일 형식:</label>
+              <select
+                className="setting-select"
+                value={fileFormat}
+                onChange={(e) => setFileFormat(e.target.value)}
+              >
+                <option value="csv">CSV</option>
+                <option value="xlsx">Excel (XLSX)</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            className="download-button"
+            onClick={handleDownload}
+            disabled={loading}
+          >
+            {loading ? '처리 중...' : '📥 ZIP 파일로 다운로드'}
           </button>
         </div>
       )}
