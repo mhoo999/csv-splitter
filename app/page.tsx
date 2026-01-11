@@ -337,7 +337,7 @@ export default function Home() {
       <footer className="footer">
         <button 
           className="coffee-button"
-          onClick={() => window.open('https://www.buymeacoffee.com', '_blank')}
+          onClick={() => window.open('https://need-coffee.vercel.app/', '_blank')}
         >
           ☕ 개발자 커피 한잔 사주기
         </button>
