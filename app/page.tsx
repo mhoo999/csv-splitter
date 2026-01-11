@@ -335,12 +335,27 @@ export default function Home() {
       )}
 
       <footer className="footer">
-        <button 
-          className="coffee-button"
-          onClick={() => window.open('https://need-coffee.vercel.app/', '_blank')}
-        >
-          ☕ 개발자 커피 한잔 사주기
-        </button>
+        <div className="button-group">
+          <a
+            href="https://hoons-service-archive.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-link"
+          >
+            다른 서비스 이용해보기
+          </a>
+          <a
+            href="https://need-coffee.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-link"
+          >
+            개발자 커피 한잔 사주기
+          </a>
+        </div>
+        <div className="email-section">
+          mhoo999@naver.com
+        </div>
       </footer>
     </div>
   )
