@@ -25,6 +25,8 @@ export default function Home() {
   const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
   const [fileFormat, setFileFormat] = useState<string>('csv')
   const [includeHeader, setIncludeHeader] = useState<boolean>(true)
+  const [enableSplit, setEnableSplit] = useState<boolean>(false)
+  const [splitRowCount, setSplitRowCount] = useState<number>(1000)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -295,6 +297,8 @@ export default function Home() {
       formData.append('encoding', encoding)
       formData.append('fileFormat', fileFormat)
       formData.append('includeHeader', includeHeader.toString())
+      formData.append('enableSplit', enableSplit.toString())
+      formData.append('splitRowCount', splitRowCount.toString())
 
       const response = await fetch('/api/download', {
         method: 'POST',
@@ -545,6 +549,28 @@ export default function Home() {
                 />
                 <span>헤더 포함</span>
               </label>
+            </div>
+
+            <div className="setting-group">
+              <label className="setting-checkbox-label">
+                <input
+                  type="checkbox"
+                  className="setting-checkbox"
+                  checked={enableSplit}
+                  onChange={(e) => setEnableSplit(e.target.checked)}
+                />
+                <span>분할 출력</span>
+              </label>
+              {enableSplit && (
+                <input
+                  type="number"
+                  className="split-row-input"
+                  min="1"
+                  value={splitRowCount}
+                  onChange={(e) => setSplitRowCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  placeholder="행 수"
+                />
+              )}
             </div>
           </div>
 

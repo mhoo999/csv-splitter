@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
     const encoding = formData.get('encoding') as string || 'UTF-8'
     const fileFormat = formData.get('fileFormat') as string || 'csv'
     const includeHeader = formData.get('includeHeader') === 'true'
+    const enableSplit = formData.get('enableSplit') === 'true'
+    const splitRowCount = parseInt(formData.get('splitRowCount') as string) || 1000
 
     if (!file) {
       return NextResponse.json(
@@ -108,90 +110,110 @@ export async function POST(request: NextRequest) {
       })
 
       // 파일명 생성 (사용자가 지정한 파일명 사용, 안전하게 처리)
-      const safeFileName = item.fileName
+      const baseFileName = item.fileName
         .replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
         .substring(0, 100) // 파일명 길이 제한
 
-      if (fileFormat === 'xlsx') {
-        // Excel 파일 생성
-        let ws: XLSX.WorkSheet
-
-        if (includeHeader) {
-          // 헤더 포함
-          ws = XLSX.utils.json_to_sheet(filteredData)
-        } else {
-          // 헤더 제외 - 데이터만 2차원 배열로 변환
-          const dataOnly = filteredData.map((row) =>
-            selectedColumns.map((col) => row[col] || '')
-          )
-          ws = XLSX.utils.aoa_to_sheet(dataOnly)
+      // 분할 처리
+      const dataChunks: any[][] = []
+      if (enableSplit && splitRowCount > 0) {
+        // 데이터를 splitRowCount 크기로 분할
+        for (let i = 0; i < filteredData.length; i += splitRowCount) {
+          dataChunks.push(filteredData.slice(i, i + splitRowCount))
         }
-
-        // 셀 형식 적용
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
-        const startRow = includeHeader ? range.s.r + 1 : range.s.r // 헤더 포함이면 두 번째 행부터, 아니면 첫 번째 행부터
-        for (let R = startRow; R <= range.e.r; R++) {
-          selectedColumns.forEach((col, C) => {
-            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
-            if (!ws[cellAddress]) return
-
-            const format = item.columnFormats[col] || 'text'
-
-            // 셀 형식에 따라 number format 지정
-            if (format === 'number') {
-              ws[cellAddress].z = '#,##0.00'
-              // 숫자로 변환 시도
-              const value = ws[cellAddress].v
-              if (typeof value === 'string' && !isNaN(parseFloat(value))) {
-                ws[cellAddress].v = parseFloat(value)
-                ws[cellAddress].t = 'n'
-              }
-            } else if (format === 'date') {
-              ws[cellAddress].z = 'yyyy-mm-dd'
-            } else if (format === 'currency') {
-              ws[cellAddress].z = '₩#,##0'
-              // 숫자로 변환 시도
-              const value = ws[cellAddress].v
-              if (typeof value === 'string' && !isNaN(parseFloat(value))) {
-                ws[cellAddress].v = parseFloat(value)
-                ws[cellAddress].t = 'n'
-              }
-            } else {
-              // 텍스트 형식
-              ws[cellAddress].z = '@'
-              ws[cellAddress].t = 's'
-            }
-          })
-        }
-
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
-        const excelBuffer = XLSX.write(wb, {
-          type: 'buffer',
-          bookType: 'xlsx',
-        })
-        zip.file(`${safeFileName}.xlsx`, excelBuffer)
       } else {
-        // CSV 파일 생성
-        const csv = Papa.unparse(filteredData, {
-          header: includeHeader,
-        })
+        // 분할하지 않으면 전체 데이터를 하나의 청크로
+        dataChunks.push(filteredData)
+      }
 
-        // 인코딩 변환
-        let csvBuffer: Buffer
-        if (encoding === 'UTF-8') {
-          csvBuffer = Buffer.from(csv, 'utf-8')
-        } else if (encoding === 'UTF-8-BOM') {
-          csvBuffer = Buffer.from('\ufeff' + csv, 'utf-8')
-        } else if (encoding === 'EUC-KR') {
-          csvBuffer = iconv.encode(csv, 'euc-kr')
-        } else if (encoding === 'CP949') {
-          csvBuffer = iconv.encode(csv, 'cp949')
+      // 각 데이터 청크에 대해 파일 생성
+      for (let chunkIndex = 0; chunkIndex < dataChunks.length; chunkIndex++) {
+        const chunkData = dataChunks[chunkIndex]
+        const safeFileName = dataChunks.length > 1
+          ? `${baseFileName}_${chunkIndex}`
+          : baseFileName
+
+        if (fileFormat === 'xlsx') {
+          // Excel 파일 생성
+          let ws: XLSX.WorkSheet
+
+          if (includeHeader) {
+            // 헤더 포함
+            ws = XLSX.utils.json_to_sheet(chunkData)
+          } else {
+            // 헤더 제외 - 데이터만 2차원 배열로 변환
+            const dataOnly = chunkData.map((row) =>
+              selectedColumns.map((col) => row[col] || '')
+            )
+            ws = XLSX.utils.aoa_to_sheet(dataOnly)
+          }
+
+          // 셀 형식 적용
+          const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+          const startRow = includeHeader ? range.s.r + 1 : range.s.r // 헤더 포함이면 두 번째 행부터, 아니면 첫 번째 행부터
+          for (let R = startRow; R <= range.e.r; R++) {
+            selectedColumns.forEach((col, C) => {
+              const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
+              if (!ws[cellAddress]) return
+
+              const format = item.columnFormats[col] || 'text'
+
+              // 셀 형식에 따라 number format 지정
+              if (format === 'number') {
+                ws[cellAddress].z = '#,##0.00'
+                // 숫자로 변환 시도
+                const value = ws[cellAddress].v
+                if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+                  ws[cellAddress].v = parseFloat(value)
+                  ws[cellAddress].t = 'n'
+                }
+              } else if (format === 'date') {
+                ws[cellAddress].z = 'yyyy-mm-dd'
+              } else if (format === 'currency') {
+                ws[cellAddress].z = '₩#,##0'
+                // 숫자로 변환 시도
+                const value = ws[cellAddress].v
+                if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+                  ws[cellAddress].v = parseFloat(value)
+                  ws[cellAddress].t = 'n'
+                }
+              } else {
+                // 텍스트 형식
+                ws[cellAddress].z = '@'
+                ws[cellAddress].t = 's'
+              }
+            })
+          }
+
+          const wb = XLSX.utils.book_new()
+          XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
+          const excelBuffer = XLSX.write(wb, {
+            type: 'buffer',
+            bookType: 'xlsx',
+          })
+          zip.file(`${safeFileName}.xlsx`, excelBuffer)
         } else {
-          csvBuffer = Buffer.from(csv, 'utf-8')
-        }
+          // CSV 파일 생성
+          const csv = Papa.unparse(chunkData, {
+            header: includeHeader,
+          })
 
-        zip.file(`${safeFileName}.csv`, csvBuffer)
+          // 인코딩 변환
+          let csvBuffer: Buffer
+          if (encoding === 'UTF-8') {
+            csvBuffer = Buffer.from(csv, 'utf-8')
+          } else if (encoding === 'UTF-8-BOM') {
+            csvBuffer = Buffer.from('\ufeff' + csv, 'utf-8')
+          } else if (encoding === 'EUC-KR') {
+            csvBuffer = iconv.encode(csv, 'euc-kr')
+          } else if (encoding === 'CP949') {
+            csvBuffer = iconv.encode(csv, 'cp949')
+          } else {
+            csvBuffer = Buffer.from(csv, 'utf-8')
+          }
+
+          zip.file(`${safeFileName}.csv`, csvBuffer)
+        }
       }
     }
 

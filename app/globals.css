@@ -576,6 +576,23 @@ h1 {
   accent-color: #1a1a1a;
 }
 
+.split-row-input {
+  width: 100px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 0;
+  font-size: 0.9rem;
+  background: white;
+  color: #1a1a1a;
+  transition: border-color 0.15s ease;
+  margin-left: 0.5rem;
+}
+
+.split-row-input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+}
+
 .download-button {
   background: #1a1a1a;
   color: white;
