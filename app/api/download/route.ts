@@ -26,9 +26,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    type CellFormat = 'text' | 'number' | 'date' | 'currency'
+
     interface SplitItem {
       columns: string[]
       fileName: string
+      columnFormats: { [columnName: string]: CellFormat }
     }
 
     const splitItems: SplitItem[] = JSON.parse(splitList)
@@ -111,6 +114,43 @@ export async function POST(request: NextRequest) {
       if (fileFormat === 'xlsx') {
         // Excel 파일 생성
         const ws = XLSX.utils.json_to_sheet(filteredData)
+
+        // 셀 형식 적용
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+        for (let R = range.s.r + 1; R <= range.e.r; R++) { // 헤더 제외하고 데이터 행만
+          selectedColumns.forEach((col, C) => {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
+            if (!ws[cellAddress]) return
+
+            const format = item.columnFormats[col] || 'text'
+
+            // 셀 형식에 따라 number format 지정
+            if (format === 'number') {
+              ws[cellAddress].z = '#,##0.00'
+              // 숫자로 변환 시도
+              const value = ws[cellAddress].v
+              if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+                ws[cellAddress].v = parseFloat(value)
+                ws[cellAddress].t = 'n'
+              }
+            } else if (format === 'date') {
+              ws[cellAddress].z = 'yyyy-mm-dd'
+            } else if (format === 'currency') {
+              ws[cellAddress].z = '₩#,##0'
+              // 숫자로 변환 시도
+              const value = ws[cellAddress].v
+              if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+                ws[cellAddress].v = parseFloat(value)
+                ws[cellAddress].t = 'n'
+              }
+            } else {
+              // 텍스트 형식
+              ws[cellAddress].z = '@'
+              ws[cellAddress].t = 's'
+            }
+          })
+        }
+
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
         const excelBuffer = XLSX.write(wb, {

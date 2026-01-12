@@ -2,15 +2,19 @@
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react'
 
+type CellFormat = 'text' | 'number' | 'date' | 'currency'
+
 interface SplitItem {
   columns: string[]
   fileName: string
+  columnFormats: { [columnName: string]: CellFormat }
 }
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [columns, setColumns] = useState<string[]>([])
   const [selectedColumns, setSelectedColumns] = useState<string[]>([])
+  const [selectedColumnFormats, setSelectedColumnFormats] = useState<{ [key: string]: CellFormat }>({})
   const [splitList, setSplitList] = useState<SplitItem[]>([]) // 분리된 컬럼 조합 리스트
   const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
   const [fileFormat, setFileFormat] = useState<string>('csv')
@@ -31,6 +35,7 @@ export default function Home() {
     setError(null)
     setSuccess(null)
     setSelectedColumns([])
+    setSelectedColumnFormats({})
     setSplitList([])
     setLoading(true)
 
@@ -88,18 +93,38 @@ export default function Home() {
     if (selectedColumns.includes(column)) {
       // 이미 선택된 경우 제거
       setSelectedColumns(selectedColumns.filter(col => col !== column))
+      const newFormats = { ...selectedColumnFormats }
+      delete newFormats[column]
+      setSelectedColumnFormats(newFormats)
     } else {
       // 선택되지 않은 경우 클릭 순서대로 추가
       setSelectedColumns([...selectedColumns, column])
+      setSelectedColumnFormats({
+        ...selectedColumnFormats,
+        [column]: 'text' // 기본값은 텍스트
+      })
     }
   }
 
   const handleSelectAll = () => {
     if (selectedColumns.length === columns.length) {
       setSelectedColumns([])
+      setSelectedColumnFormats({})
     } else {
       setSelectedColumns([...columns])
+      const newFormats: { [key: string]: CellFormat } = {}
+      columns.forEach(col => {
+        newFormats[col] = 'text'
+      })
+      setSelectedColumnFormats(newFormats)
     }
+  }
+
+  const handleColumnFormatChange = (column: string, format: CellFormat) => {
+    setSelectedColumnFormats({
+      ...selectedColumnFormats,
+      [column]: format
+    })
   }
 
   const generateDefaultFileName = (cols: string[]): string => {
@@ -117,10 +142,16 @@ export default function Home() {
     // 선택된 컬럼들을 클릭 순서대로 리스트에 추가
     const newColumns = [...selectedColumns]
     const defaultFileName = generateDefaultFileName(newColumns)
-    
+
+    // 현재 선택된 컬럼들의 셀 형식 복사
+    const columnFormats: { [key: string]: CellFormat } = {}
+    newColumns.forEach(col => {
+      columnFormats[col] = selectedColumnFormats[col] || 'text'
+    })
+
     // 중복 확인 (같은 컬럼 조합이 이미 있는지)
     const isDuplicate = splitList.some(
-      (item) => item.columns.length === newColumns.length && 
+      (item) => item.columns.length === newColumns.length &&
                  item.columns.every((col, idx) => col === newColumns[idx])
     )
 
@@ -129,8 +160,9 @@ export default function Home() {
       return
     }
 
-    setSplitList([...splitList, { columns: newColumns, fileName: defaultFileName }])
+    setSplitList([...splitList, { columns: newColumns, fileName: defaultFileName, columnFormats }])
     setSelectedColumns([])
+    setSelectedColumnFormats({})
     setSuccess(`리스트에 추가되었습니다! (${newColumns.join(', ')})`)
     setTimeout(() => setSuccess(null), 2000)
   }
@@ -142,6 +174,12 @@ export default function Home() {
   const handleFileNameChange = (index: number, newFileName: string) => {
     const updatedList = [...splitList]
     updatedList[index].fileName = newFileName
+    setSplitList(updatedList)
+  }
+
+  const handleSplitItemFormatChange = (index: number, column: string, format: CellFormat) => {
+    const updatedList = [...splitList]
+    updatedList[index].columnFormats[column] = format
     setSplitList(updatedList)
   }
 
@@ -243,18 +281,32 @@ export default function Home() {
               const columnIndex = selectedColumns.indexOf(column)
               const isSelected = columnIndex !== -1
               return (
-                <div key={column} className="column-item">
-                  <input
-                    type="checkbox"
-                    id={column}
-                    className="column-checkbox"
-                    checked={isSelected}
-                    onChange={() => handleColumnToggle(column)}
-                  />
-                  <label htmlFor={column} className="column-label">
-                    {isSelected && <span className="column-order">({columnIndex + 1}) </span>}
-                    {column}
-                  </label>
+                <div key={column} className="column-item-with-format">
+                  <div className="column-item">
+                    <input
+                      type="checkbox"
+                      id={column}
+                      className="column-checkbox"
+                      checked={isSelected}
+                      onChange={() => handleColumnToggle(column)}
+                    />
+                    <label htmlFor={column} className="column-label">
+                      {isSelected && <span className="column-order">({columnIndex + 1}) </span>}
+                      {column}
+                    </label>
+                  </div>
+                  {isSelected && (
+                    <select
+                      className="column-format-select"
+                      value={selectedColumnFormats[column] || 'text'}
+                      onChange={(e) => handleColumnFormatChange(column, e.target.value as CellFormat)}
+                    >
+                      <option value="text">텍스트</option>
+                      <option value="number">숫자</option>
+                      <option value="date">날짜</option>
+                      <option value="currency">통화</option>
+                    </select>
+                  )}
                 </div>
               )
             })}
@@ -277,7 +329,6 @@ export default function Home() {
             {splitList.map((item, index) => (
               <div key={index} className="split-list-item">
                 <div className="split-list-item-content">
-                  <div className="split-list-item-columns">{item.columns.join(', ')}</div>
                   <input
                     type="text"
                     className="split-list-item-filename"
@@ -285,6 +336,23 @@ export default function Home() {
                     onChange={(e) => handleFileNameChange(index, e.target.value)}
                     placeholder="파일명 입력"
                   />
+                  <div className="split-list-item-columns-container">
+                    {item.columns.map((column) => (
+                      <div key={column} className="split-list-column-format">
+                        <span className="column-name">{column}</span>
+                        <select
+                          className="column-format-select-small"
+                          value={item.columnFormats[column] || 'text'}
+                          onChange={(e) => handleSplitItemFormatChange(index, column, e.target.value as CellFormat)}
+                        >
+                          <option value="text">텍스트</option>
+                          <option value="number">숫자</option>
+                          <option value="date">날짜</option>
+                          <option value="currency">통화</option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <button
                   className="remove-button"

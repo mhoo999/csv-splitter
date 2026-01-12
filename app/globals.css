@@ -108,9 +108,15 @@ h1 {
 
 .columns-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+}
+
+.column-item-with-format {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .column-item {
@@ -147,6 +153,26 @@ h1 {
 .column-order {
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.column-format-select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 0;
+  font-size: 0.8rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.column-format-select:hover {
+  border-color: #808080;
+}
+
+.column-format-select:focus {
+  outline: none;
+  border-color: #1a1a1a;
 }
 
 .select-all-section {
@@ -273,13 +299,55 @@ h1 {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .split-list-item-columns {
   font-size: 0.9rem;
   color: #666;
   word-break: break-word;
+}
+
+.split-list-item-columns-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.split-list-column-format {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f5f5f5;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0;
+  border: 1px solid #e0e0e0;
+}
+
+.column-name {
+  font-size: 0.85rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.column-format-select-small {
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 0;
+  font-size: 0.75rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.column-format-select-small:hover {
+  border-color: #808080;
+}
+
+.column-format-select-small:focus {
+  outline: none;
+  border-color: #1a1a1a;
 }
 
 .split-list-item-filename {
