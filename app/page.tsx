@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useRef, DragEvent, ChangeEvent } from 'react'
+import { useState, useRef, useEffect, DragEvent, ChangeEvent } from 'react'
 
 type CellFormat = 'text' | 'number' | 'date' | 'currency'
 
 interface SplitItem {
   columns: string[]
   fileName: string
+  columnFormats: { [columnName: string]: CellFormat }
+}
+
+interface Macro {
+  name: string
+  columns: string[]
   columnFormats: { [columnName: string]: CellFormat }
 }
 
@@ -23,6 +29,21 @@ export default function Home() {
   const [success, setSuccess] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [macros, setMacros] = useState<Macro[]>([])
+  const [showMacroInput, setShowMacroInput] = useState(false)
+  const [macroName, setMacroName] = useState('')
+
+  // 로컬스토리지에서 매크로 불러오기
+  useEffect(() => {
+    const savedMacros = localStorage.getItem('csv-splitter-macros')
+    if (savedMacros) {
+      try {
+        setMacros(JSON.parse(savedMacros))
+      } catch (e) {
+        console.error('매크로 불러오기 실패:', e)
+      }
+    }
+  }, [])
 
   const handleFileSelect = async (selectedFile: File) => {
     const fileName = selectedFile.name.toLowerCase()
@@ -183,6 +204,74 @@ export default function Home() {
     setSplitList(updatedList)
   }
 
+  const handleSaveMacro = () => {
+    if (!macroName.trim()) {
+      setError('매크로 이름을 입력해주세요.')
+      return
+    }
+
+    if (selectedColumns.length === 0) {
+      setError('저장할 컬럼을 선택해주세요.')
+      return
+    }
+
+    const newMacro: Macro = {
+      name: macroName.trim(),
+      columns: [...selectedColumns],
+      columnFormats: { ...selectedColumnFormats }
+    }
+
+    // 같은 이름의 매크로가 있는지 확인
+    const existingIndex = macros.findIndex(m => m.name === newMacro.name)
+    let updatedMacros: Macro[]
+
+    if (existingIndex !== -1) {
+      // 기존 매크로 덮어쓰기
+      updatedMacros = [...macros]
+      updatedMacros[existingIndex] = newMacro
+    } else {
+      // 새 매크로 추가
+      updatedMacros = [...macros, newMacro]
+    }
+
+    setMacros(updatedMacros)
+    localStorage.setItem('csv-splitter-macros', JSON.stringify(updatedMacros))
+    setMacroName('')
+    setShowMacroInput(false)
+    setSuccess(`매크로 "${newMacro.name}"이(가) 저장되었습니다!`)
+    setTimeout(() => setSuccess(null), 2000)
+  }
+
+  const handleLoadMacro = (macro: Macro) => {
+    // 파일의 모든 컬럼 중 매크로에 포함된 컬럼만 선택
+    const validColumns = macro.columns.filter(col => columns.includes(col))
+
+    if (validColumns.length === 0) {
+      setError('현재 파일에는 매크로의 컬럼이 없습니다.')
+      return
+    }
+
+    setSelectedColumns(validColumns)
+
+    // 셀 형식도 함께 적용
+    const newFormats: { [key: string]: CellFormat } = {}
+    validColumns.forEach(col => {
+      newFormats[col] = macro.columnFormats[col] || 'text'
+    })
+    setSelectedColumnFormats(newFormats)
+
+    setSuccess(`매크로 "${macro.name}"이(가) 적용되었습니다!`)
+    setTimeout(() => setSuccess(null), 2000)
+  }
+
+  const handleDeleteMacro = (macroName: string) => {
+    const updatedMacros = macros.filter(m => m.name !== macroName)
+    setMacros(updatedMacros)
+    localStorage.setItem('csv-splitter-macros', JSON.stringify(updatedMacros))
+    setSuccess(`매크로 "${macroName}"이(가) 삭제되었습니다.`)
+    setTimeout(() => setSuccess(null), 2000)
+  }
+
   const handleDownload = async () => {
     if (splitList.length === 0) {
       setError('리스트에 항목이 없습니다. 먼저 컬럼을 선택하고 분리해주세요.')
@@ -319,6 +408,58 @@ export default function Home() {
           >
             리스트에 추가
           </button>
+
+          {/* 매크로 섹션 */}
+          <div className="macro-section">
+            <div className="macro-header">
+              <div className="macro-title">매크로</div>
+              <button
+                className="macro-save-button"
+                onClick={() => setShowMacroInput(!showMacroInput)}
+              >
+                {showMacroInput ? '취소' : '현재 선택 저장'}
+              </button>
+            </div>
+
+            {showMacroInput && (
+              <div className="macro-input-section">
+                <input
+                  type="text"
+                  className="macro-name-input"
+                  placeholder="매크로 이름 (예: a, b, c 컬럼)"
+                  value={macroName}
+                  onChange={(e) => setMacroName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSaveMacro()}
+                />
+                <button className="macro-confirm-button" onClick={handleSaveMacro}>
+                  저장
+                </button>
+              </div>
+            )}
+
+            {macros.length > 0 && (
+              <div className="macro-list">
+                {macros.map((macro) => (
+                  <div key={macro.name} className="macro-item">
+                    <button
+                      className="macro-load-button"
+                      onClick={() => handleLoadMacro(macro)}
+                      title={`컬럼: ${macro.columns.join(', ')}`}
+                    >
+                      {macro.name}
+                    </button>
+                    <button
+                      className="macro-delete-button"
+                      onClick={() => handleDeleteMacro(macro.name)}
+                      title="삭제"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
