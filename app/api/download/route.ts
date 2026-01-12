@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const splitList = formData.get('splitList') as string
     const encoding = formData.get('encoding') as string || 'UTF-8'
     const fileFormat = formData.get('fileFormat') as string || 'csv'
+    const includeHeader = formData.get('includeHeader') === 'true'
 
     if (!file) {
       return NextResponse.json(
@@ -113,11 +114,23 @@ export async function POST(request: NextRequest) {
 
       if (fileFormat === 'xlsx') {
         // Excel 파일 생성
-        const ws = XLSX.utils.json_to_sheet(filteredData)
+        let ws: XLSX.WorkSheet
+
+        if (includeHeader) {
+          // 헤더 포함
+          ws = XLSX.utils.json_to_sheet(filteredData)
+        } else {
+          // 헤더 제외 - 데이터만 2차원 배열로 변환
+          const dataOnly = filteredData.map((row) =>
+            selectedColumns.map((col) => row[col] || '')
+          )
+          ws = XLSX.utils.aoa_to_sheet(dataOnly)
+        }
 
         // 셀 형식 적용
         const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
-        for (let R = range.s.r + 1; R <= range.e.r; R++) { // 헤더 제외하고 데이터 행만
+        const startRow = includeHeader ? range.s.r + 1 : range.s.r // 헤더 포함이면 두 번째 행부터, 아니면 첫 번째 행부터
+        for (let R = startRow; R <= range.e.r; R++) {
           selectedColumns.forEach((col, C) => {
             const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
             if (!ws[cellAddress]) return
@@ -161,7 +174,7 @@ export async function POST(request: NextRequest) {
       } else {
         // CSV 파일 생성
         const csv = Papa.unparse(filteredData, {
-          header: true,
+          header: includeHeader,
         })
 
         // 인코딩 변환

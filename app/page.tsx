@@ -24,6 +24,7 @@ export default function Home() {
   const [splitList, setSplitList] = useState<SplitItem[]>([]) // 분리된 컬럼 조합 리스트
   const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
   const [fileFormat, setFileFormat] = useState<string>('csv')
+  const [includeHeader, setIncludeHeader] = useState<boolean>(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -293,6 +294,7 @@ export default function Home() {
       formData.append('splitList', JSON.stringify(splitList))
       formData.append('encoding', encoding)
       formData.append('fileFormat', fileFormat)
+      formData.append('includeHeader', includeHeader.toString())
 
       const response = await fetch('/api/download', {
         method: 'POST',
@@ -531,6 +533,18 @@ export default function Home() {
                 <option value="csv">CSV</option>
                 <option value="xlsx">Excel (XLSX)</option>
               </select>
+            </div>
+
+            <div className="setting-group">
+              <label className="setting-checkbox-label">
+                <input
+                  type="checkbox"
+                  className="setting-checkbox"
+                  checked={includeHeader}
+                  onChange={(e) => setIncludeHeader(e.target.checked)}
+                />
+                <span>헤더 포함</span>
+              </label>
             </div>
           </div>
 
