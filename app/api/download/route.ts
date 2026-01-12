@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
         data: any[]
         groupName?: string
         chunkIndex: number
+        totalChunksInGroup: number
       }
 
       const dataChunks: DataChunk[] = []
@@ -151,12 +152,14 @@ export async function POST(request: NextRequest) {
 
           if (enableSplit && splitRowCount > 0) {
             // 각 그룹 내에서 splitRowCount 크기로 분할
+            const totalChunks = Math.ceil(groupData.length / splitRowCount)
             for (let i = 0; i < groupData.length; i += splitRowCount) {
               const chunkIndex = Math.floor(i / splitRowCount)
               dataChunks.push({
                 data: groupData.slice(i, i + splitRowCount),
                 groupName: groupName,
-                chunkIndex: chunkIndex
+                chunkIndex: chunkIndex,
+                totalChunksInGroup: totalChunks
               })
             }
           } else {
@@ -164,7 +167,8 @@ export async function POST(request: NextRequest) {
             dataChunks.push({
               data: groupData,
               groupName: groupName,
-              chunkIndex: 0
+              chunkIndex: 0,
+              totalChunksInGroup: 1
             })
           }
         })
@@ -188,12 +192,14 @@ export async function POST(request: NextRequest) {
 
           if (enableSplit && splitRowCount > 0) {
             // 각 그룹 내에서 splitRowCount 크기로 분할
+            const totalChunks = Math.ceil(groupData.length / splitRowCount)
             for (let i = 0; i < groupData.length; i += splitRowCount) {
               const chunkIndex = Math.floor(i / splitRowCount)
               dataChunks.push({
                 data: groupData.slice(i, i + splitRowCount),
                 groupName: groupName,
-                chunkIndex: chunkIndex
+                chunkIndex: chunkIndex,
+                totalChunksInGroup: totalChunks
               })
             }
           } else {
@@ -201,23 +207,27 @@ export async function POST(request: NextRequest) {
             dataChunks.push({
               data: groupData,
               groupName: groupName,
-              chunkIndex: 0
+              chunkIndex: 0,
+              totalChunksInGroup: 1
             })
           }
         })
       } else if (enableSplit && splitRowCount > 0) {
         // 구분 컬럼 없이 전체 데이터를 splitRowCount 크기로 분할
+        const totalChunks = Math.ceil(filteredData.length / splitRowCount)
         for (let i = 0; i < filteredData.length; i += splitRowCount) {
           dataChunks.push({
             data: filteredData.slice(i, i + splitRowCount),
-            chunkIndex: Math.floor(i / splitRowCount)
+            chunkIndex: Math.floor(i / splitRowCount),
+            totalChunksInGroup: totalChunks
           })
         }
       } else {
         // 분할하지 않으면 전체 데이터를 하나의 청크로
         dataChunks.push({
           data: filteredData,
-          chunkIndex: 0
+          chunkIndex: 0,
+          totalChunksInGroup: 1
         })
       }
 
@@ -231,8 +241,8 @@ export async function POST(request: NextRequest) {
 
           // 컬럼값 조합 모드일 때는 조합값만 사용
           if (fileNameMode === 'columnCombination') {
-            if (enableSplit && splitRowCount > 0) {
-              // 그룹 내에서 분할: 조합값_0, 조합값_1
+            if (chunk.totalChunksInGroup > 1) {
+              // 실제로 분할된 경우만 인덱스 붙이기: 조합값_0, 조합값_1
               safeFileName = `${safeGroupName}_${chunk.chunkIndex}`
             } else {
               // 그룹만: 조합값
@@ -240,16 +250,16 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // 사용자 지정 모드 (기존 로직)
-            if (enableSplit && splitRowCount > 0) {
-              // 그룹 내에서 분할된 경우: 파일명_그룹명_0, 파일명_그룹명_1
+            if (chunk.totalChunksInGroup > 1) {
+              // 실제로 분할된 경우만 인덱스 붙이기: 파일명_그룹명_0, 파일명_그룹명_1
               safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
             } else {
               // 그룹별로만 나눈 경우: 파일명_그룹명
               safeFileName = `${baseFileName}_${safeGroupName}`
             }
           }
-        } else if (dataChunks.length > 1) {
-          // 그룹명 없이 분할만: 파일명_0, 파일명_1 형식
+        } else if (chunk.totalChunksInGroup > 1) {
+          // 그룹명 없이 실제로 분할된 경우만: 파일명_0, 파일명_1 형식
           safeFileName = `${baseFileName}_${chunk.chunkIndex}`
         }
 
