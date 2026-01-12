@@ -10,7 +10,7 @@ interface SplitItem {
 export default function Home() {
   const [file, setFile] = useState<File | null>(null)
   const [columns, setColumns] = useState<string[]>([])
-  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set())
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
   const [splitList, setSplitList] = useState<SplitItem[]>([]) // 분리된 컬럼 조합 리스트
   const [encoding, setEncoding] = useState<string>('UTF-8-BOM')
   const [fileFormat, setFileFormat] = useState<string>('csv')
@@ -30,7 +30,7 @@ export default function Home() {
     setFile(selectedFile)
     setError(null)
     setSuccess(null)
-    setSelectedColumns(new Set())
+    setSelectedColumns([])
     setSplitList([])
     setLoading(true)
 
@@ -85,20 +85,20 @@ export default function Home() {
   }
 
   const handleColumnToggle = (column: string) => {
-    const newSelected = new Set(selectedColumns)
-    if (newSelected.has(column)) {
-      newSelected.delete(column)
+    if (selectedColumns.includes(column)) {
+      // 이미 선택된 경우 제거
+      setSelectedColumns(selectedColumns.filter(col => col !== column))
     } else {
-      newSelected.add(column)
+      // 선택되지 않은 경우 클릭 순서대로 추가
+      setSelectedColumns([...selectedColumns, column])
     }
-    setSelectedColumns(newSelected)
   }
 
   const handleSelectAll = () => {
-    if (selectedColumns.size === columns.length) {
-      setSelectedColumns(new Set())
+    if (selectedColumns.length === columns.length) {
+      setSelectedColumns([])
     } else {
-      setSelectedColumns(new Set(columns))
+      setSelectedColumns([...columns])
     }
   }
 
@@ -109,13 +109,13 @@ export default function Home() {
   }
 
   const handleSplit = () => {
-    if (selectedColumns.size === 0) {
+    if (selectedColumns.length === 0) {
       setError('최소 하나의 컬럼을 선택해야 합니다.')
       return
     }
 
-    // 선택된 컬럼들을 배열로 변환하여 리스트에 추가
-    const newColumns = Array.from(selectedColumns).sort()
+    // 선택된 컬럼들을 클릭 순서대로 리스트에 추가
+    const newColumns = [...selectedColumns]
     const defaultFileName = generateDefaultFileName(newColumns)
     
     // 중복 확인 (같은 컬럼 조합이 이미 있는지)
@@ -130,7 +130,7 @@ export default function Home() {
     }
 
     setSplitList([...splitList, { columns: newColumns, fileName: defaultFileName }])
-    setSelectedColumns(new Set())
+    setSelectedColumns([])
     setSuccess(`리스트에 추가되었습니다! (${newColumns.join(', ')})`)
     setTimeout(() => setSuccess(null), 2000)
   }
@@ -229,36 +229,41 @@ export default function Home() {
 
       {columns.length > 0 && (
         <div className="columns-section">
-          <div className="columns-title">컬럼 선택 ({selectedColumns.size}/{columns.length})</div>
+          <div className="columns-title">컬럼 선택 ({selectedColumns.length}/{columns.length})</div>
           
           <div className="select-all-section">
             <span>전체 선택/해제</span>
             <button className="select-all-button" onClick={handleSelectAll}>
-              {selectedColumns.size === columns.length ? '전체 해제' : '전체 선택'}
+              {selectedColumns.length === columns.length ? '전체 해제' : '전체 선택'}
             </button>
           </div>
 
           <div className="columns-list">
-            {columns.map((column) => (
-              <div key={column} className="column-item">
-                <input
-                  type="checkbox"
-                  id={column}
-                  className="column-checkbox"
-                  checked={selectedColumns.has(column)}
-                  onChange={() => handleColumnToggle(column)}
-                />
-                <label htmlFor={column} className="column-label">
-                  {column}
-                </label>
-              </div>
-            ))}
+            {columns.map((column) => {
+              const columnIndex = selectedColumns.indexOf(column)
+              const isSelected = columnIndex !== -1
+              return (
+                <div key={column} className="column-item">
+                  <input
+                    type="checkbox"
+                    id={column}
+                    className="column-checkbox"
+                    checked={isSelected}
+                    onChange={() => handleColumnToggle(column)}
+                  />
+                  <label htmlFor={column} className="column-label">
+                    {isSelected && <span className="column-order">({columnIndex + 1}) </span>}
+                    {column}
+                  </label>
+                </div>
+              )
+            })}
           </div>
 
           <button
             className="split-button"
             onClick={handleSplit}
-            disabled={loading || selectedColumns.size === 0}
+            disabled={loading || selectedColumns.length === 0}
           >
             리스트에 추가
           </button>
