@@ -28,6 +28,8 @@ export default function Home() {
   const [enableSplit, setEnableSplit] = useState<boolean>(false)
   const [splitRowCount, setSplitRowCount] = useState<number>(1000)
   const [splitByColumn, setSplitByColumn] = useState<string>('')
+  const [fileNameMode, setFileNameMode] = useState<'custom' | 'columnCombination'>('custom')
+  const [namingColumns, setNamingColumns] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -150,6 +152,14 @@ export default function Home() {
       ...selectedColumnFormats,
       [column]: format
     })
+  }
+
+  const handleNamingColumnToggle = (column: string) => {
+    if (namingColumns.includes(column)) {
+      setNamingColumns(namingColumns.filter(col => col !== column))
+    } else {
+      setNamingColumns([...namingColumns, column])
+    }
   }
 
   const generateDefaultFileName = (cols: string[]): string => {
@@ -301,6 +311,8 @@ export default function Home() {
       formData.append('enableSplit', enableSplit.toString())
       formData.append('splitRowCount', splitRowCount.toString())
       formData.append('splitByColumn', splitByColumn)
+      formData.append('fileNameMode', fileNameMode)
+      formData.append('namingColumns', JSON.stringify(namingColumns))
 
       const response = await fetch('/api/download', {
         method: 'POST',
@@ -582,27 +594,87 @@ export default function Home() {
             </div>
 
             {splitList.length > 0 && columns.length > 0 && (
-              <div className="setting-group">
-                <label className="setting-label">구분 컬럼:</label>
-                <select
-                  className="setting-select"
-                  value={splitByColumn}
-                  onChange={(e) => setSplitByColumn(e.target.value)}
-                >
-                  <option value="">없음</option>
-                  {columns.map((col) => (
-                    <option key={col} value={col}>{col}</option>
-                  ))}
-                </select>
-                {splitByColumn && (
-                  <div className="split-hint">
-                    {enableSplit
-                      ? `"${splitByColumn}" 컬럼의 값별로 그룹화한 후, 각 그룹 내에서 ${splitRowCount}개씩 분할됩니다.`
-                      : `"${splitByColumn}" 컬럼의 값별로 그룹화하여 파일을 생성합니다.`
-                    }
+              <>
+                <div className="setting-group">
+                  <label className="setting-label">파일명 규칙:</label>
+                  <div className="filename-mode-options">
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="fileNameMode"
+                        value="custom"
+                        checked={fileNameMode === 'custom'}
+                        onChange={(e) => setFileNameMode(e.target.value as 'custom')}
+                      />
+                      <span>사용자 지정</span>
+                    </label>
+                    <label className="radio-label">
+                      <input
+                        type="radio"
+                        name="fileNameMode"
+                        value="columnCombination"
+                        checked={fileNameMode === 'columnCombination'}
+                        onChange={(e) => setFileNameMode(e.target.value as 'columnCombination')}
+                      />
+                      <span>컬럼값 조합</span>
+                    </label>
+                  </div>
+                </div>
+
+                {fileNameMode === 'columnCombination' && (
+                  <div className="setting-group">
+                    <label className="setting-label">파일명에 사용할 컬럼:</label>
+                    <div className="naming-columns-list">
+                      {columns.map((column) => {
+                        const columnIndex = namingColumns.indexOf(column)
+                        const isSelected = columnIndex !== -1
+                        return (
+                          <label key={column} className="naming-column-item">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleNamingColumnToggle(column)}
+                            />
+                            <span>
+                              {isSelected && <span className="column-order">({columnIndex + 1}) </span>}
+                              {column}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {namingColumns.length > 0 && (
+                      <div className="split-hint">
+                        파일명 예시: {namingColumns.join('_')}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+
+                {fileNameMode === 'custom' && (
+                  <div className="setting-group">
+                    <label className="setting-label">구분 컬럼:</label>
+                    <select
+                      className="setting-select"
+                      value={splitByColumn}
+                      onChange={(e) => setSplitByColumn(e.target.value)}
+                    >
+                      <option value="">없음</option>
+                      {columns.map((col) => (
+                        <option key={col} value={col}>{col}</option>
+                      ))}
+                    </select>
+                    {splitByColumn && (
+                      <div className="split-hint">
+                        {enableSplit
+                          ? `"${splitByColumn}" 컬럼의 값별로 그룹화한 후, 각 그룹 내에서 ${splitRowCount}개씩 분할됩니다.`
+                          : `"${splitByColumn}" 컬럼의 값별로 그룹화하여 파일을 생성합니다.`
+                        }
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 

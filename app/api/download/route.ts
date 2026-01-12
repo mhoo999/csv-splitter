@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
     const enableSplit = formData.get('enableSplit') === 'true'
     const splitRowCount = parseInt(formData.get('splitRowCount') as string) || 1000
     const splitByColumn = (formData.get('splitByColumn') as string) || ''
+    const fileNameMode = (formData.get('fileNameMode') as string) || 'custom'
+    const namingColumnsStr = formData.get('namingColumns') as string
+    const namingColumns: string[] = namingColumnsStr ? JSON.parse(namingColumnsStr) : []
 
     if (!file) {
       return NextResponse.json(
@@ -124,7 +127,48 @@ export async function POST(request: NextRequest) {
 
       const dataChunks: DataChunk[] = []
 
-      if (splitByColumn) {
+      if (fileNameMode === 'columnCombination' && namingColumns.length > 0) {
+        // 컬럼값 조합으로 그룹화
+        const groups: { [key: string]: any[] } = {}
+
+        // 각 행의 namingColumns 값들을 조합하여 그룹 키 생성
+        filteredData.forEach((filteredRow, index) => {
+          const combinedValues = namingColumns.map(col => {
+            const value = allData[index]?.[col]
+            return String(value || '미분류')
+          })
+          const groupValue = combinedValues.join('_')
+
+          if (!groups[groupValue]) {
+            groups[groupValue] = []
+          }
+          groups[groupValue].push(filteredRow)
+        })
+
+        // 각 그룹 처리
+        Object.keys(groups).forEach((groupName) => {
+          const groupData = groups[groupName]
+
+          if (enableSplit && splitRowCount > 0) {
+            // 각 그룹 내에서 splitRowCount 크기로 분할
+            for (let i = 0; i < groupData.length; i += splitRowCount) {
+              const chunkIndex = Math.floor(i / splitRowCount)
+              dataChunks.push({
+                data: groupData.slice(i, i + splitRowCount),
+                groupName: groupName,
+                chunkIndex: chunkIndex
+              })
+            }
+          } else {
+            // 그룹별로 파일 하나씩
+            dataChunks.push({
+              data: groupData,
+              groupName: groupName,
+              chunkIndex: 0
+            })
+          }
+        })
+      } else if (splitByColumn) {
         // 구분 컬럼 기준으로 그룹화 (출력 컬럼에 포함되지 않아도 가능)
         const groups: { [key: string]: any[] } = {}
 
@@ -185,12 +229,24 @@ export async function POST(request: NextRequest) {
         if (chunk.groupName) {
           const safeGroupName = chunk.groupName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
 
-          // 그룹 내에서 분할된 경우: 파일명_그룹명_0, 파일명_그룹명_1
-          if (enableSplit && splitRowCount > 0) {
-            safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
+          // 컬럼값 조합 모드일 때는 조합값만 사용
+          if (fileNameMode === 'columnCombination') {
+            if (enableSplit && splitRowCount > 0) {
+              // 그룹 내에서 분할: 조합값_0, 조합값_1
+              safeFileName = `${safeGroupName}_${chunk.chunkIndex}`
+            } else {
+              // 그룹만: 조합값
+              safeFileName = safeGroupName
+            }
           } else {
-            // 그룹별로만 나눈 경우: 파일명_그룹명
-            safeFileName = `${baseFileName}_${safeGroupName}`
+            // 사용자 지정 모드 (기존 로직)
+            if (enableSplit && splitRowCount > 0) {
+              // 그룹 내에서 분할된 경우: 파일명_그룹명_0, 파일명_그룹명_1
+              safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
+            } else {
+              // 그룹별로만 나눈 경우: 파일명_그룹명
+              safeFileName = `${baseFileName}_${safeGroupName}`
+            }
           }
         } else if (dataChunks.length > 1) {
           // 그룹명 없이 분할만: 파일명_0, 파일명_1 형식
