@@ -581,7 +581,7 @@ export default function Home() {
               </div>
             </div>
 
-            {splitList.length > 0 && (
+            {splitList.length > 0 && columns.length > 0 && (
               <div className="setting-group">
                 <label className="setting-label">구분 컬럼:</label>
                 <select
@@ -590,7 +590,7 @@ export default function Home() {
                   onChange={(e) => setSplitByColumn(e.target.value)}
                 >
                   <option value="">없음</option>
-                  {splitList[0].columns.map((col) => (
+                  {columns.map((col) => (
                     <option key={col} value={col}>{col}</option>
                   ))}
                 </select>

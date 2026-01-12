@@ -124,16 +124,18 @@ export async function POST(request: NextRequest) {
 
       const dataChunks: DataChunk[] = []
 
-      if (splitByColumn && selectedColumns.includes(splitByColumn)) {
-        // 구분 컬럼 기준으로 그룹화
+      if (splitByColumn) {
+        // 구분 컬럼 기준으로 그룹화 (출력 컬럼에 포함되지 않아도 가능)
         const groups: { [key: string]: any[] } = {}
 
-        filteredData.forEach((row) => {
-          const groupValue = String(row[splitByColumn] || '미분류')
+        // 원본 데이터에서 구분 컬럼 값을 가져와 그룹화
+        filteredData.forEach((filteredRow, index) => {
+          // allData의 같은 인덱스에서 구분 컬럼 값 가져오기
+          const groupValue = String(allData[index]?.[splitByColumn] || '미분류')
           if (!groups[groupValue]) {
             groups[groupValue] = []
           }
-          groups[groupValue].push(row)
+          groups[groupValue].push(filteredRow)
         })
 
         // 각 그룹 처리
