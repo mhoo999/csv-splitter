@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     const includeHeader = formData.get('includeHeader') === 'true'
     const enableSplit = formData.get('enableSplit') === 'true'
     const splitRowCount = parseInt(formData.get('splitRowCount') as string) || 1000
+    const splitByColumn = (formData.get('splitByColumn') as string) || ''
 
     if (!file) {
       return NextResponse.json(
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    type CellFormat = 'text' | 'number' | 'date' | 'currency'
+    type CellFormat = 'general' | 'text' | 'number' | 'date' | 'currency'
 
     interface SplitItem {
       columns: string[]
@@ -115,23 +116,67 @@ export async function POST(request: NextRequest) {
         .substring(0, 100) // 파일명 길이 제한
 
       // 분할 처리
-      const dataChunks: any[][] = []
-      if (enableSplit && splitRowCount > 0) {
-        // 데이터를 splitRowCount 크기로 분할
+      interface DataChunk {
+        data: any[]
+        groupName?: string
+        chunkIndex: number
+      }
+
+      const dataChunks: DataChunk[] = []
+
+      if (enableSplit && splitRowCount > 0 && splitByColumn && selectedColumns.includes(splitByColumn)) {
+        // 구분 컬럼 기준으로 그룹화 후 분할
+        const groups: { [key: string]: any[] } = {}
+
+        filteredData.forEach((row) => {
+          const groupValue = String(row[splitByColumn] || '미분류')
+          if (!groups[groupValue]) {
+            groups[groupValue] = []
+          }
+          groups[groupValue].push(row)
+        })
+
+        // 각 그룹 내에서 splitRowCount 크기로 분할
+        Object.keys(groups).forEach((groupName) => {
+          const groupData = groups[groupName]
+          for (let i = 0; i < groupData.length; i += splitRowCount) {
+            const chunkIndex = Math.floor(i / splitRowCount)
+            dataChunks.push({
+              data: groupData.slice(i, i + splitRowCount),
+              groupName: groupName,
+              chunkIndex: chunkIndex
+            })
+          }
+        })
+      } else if (enableSplit && splitRowCount > 0) {
+        // 구분 컬럼 없이 전체 데이터를 splitRowCount 크기로 분할
         for (let i = 0; i < filteredData.length; i += splitRowCount) {
-          dataChunks.push(filteredData.slice(i, i + splitRowCount))
+          dataChunks.push({
+            data: filteredData.slice(i, i + splitRowCount),
+            chunkIndex: Math.floor(i / splitRowCount)
+          })
         }
       } else {
         // 분할하지 않으면 전체 데이터를 하나의 청크로
-        dataChunks.push(filteredData)
+        dataChunks.push({
+          data: filteredData,
+          chunkIndex: 0
+        })
       }
 
       // 각 데이터 청크에 대해 파일 생성
-      for (let chunkIndex = 0; chunkIndex < dataChunks.length; chunkIndex++) {
-        const chunkData = dataChunks[chunkIndex]
-        const safeFileName = dataChunks.length > 1
-          ? `${baseFileName}_${chunkIndex}`
-          : baseFileName
+      for (const chunk of dataChunks) {
+        const chunkData = chunk.data
+        let safeFileName = baseFileName
+
+        if (chunk.groupName) {
+          // 그룹명이 있으면: 파일명_그룹명_0, 파일명_그룹명_1 형식
+          const safeGroupName = chunk.groupName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
+          safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
+        } else if (dataChunks.length > 1) {
+          // 그룹명 없이 분할만: 파일명_0, 파일명_1 형식
+          safeFileName = `${baseFileName}_${chunk.chunkIndex}`
+        }
 
         if (fileFormat === 'xlsx') {
           // Excel 파일 생성
@@ -156,10 +201,13 @@ export async function POST(request: NextRequest) {
               const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
               if (!ws[cellAddress]) return
 
-              const format = item.columnFormats[col] || 'text'
+              const format = item.columnFormats[col] || 'general'
 
               // 셀 형식에 따라 number format 지정
-              if (format === 'number') {
+              if (format === 'general') {
+                // 일반 형식 - 기본 형식, 별도 처리 없음
+                // Excel이 자동으로 데이터 타입을 인식
+              } else if (format === 'number') {
                 ws[cellAddress].z = '#,##0.00'
                 // 숫자로 변환 시도
                 const value = ws[cellAddress].v
@@ -177,7 +225,7 @@ export async function POST(request: NextRequest) {
                   ws[cellAddress].v = parseFloat(value)
                   ws[cellAddress].t = 'n'
                 }
-              } else {
+              } else if (format === 'text') {
                 // 텍스트 형식
                 ws[cellAddress].z = '@'
                 ws[cellAddress].t = 's'

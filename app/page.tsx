@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, DragEvent, ChangeEvent } from 'react'
 
-type CellFormat = 'text' | 'number' | 'date' | 'currency'
+type CellFormat = 'general' | 'text' | 'number' | 'date' | 'currency'
 
 interface SplitItem {
   columns: string[]
@@ -27,6 +27,7 @@ export default function Home() {
   const [includeHeader, setIncludeHeader] = useState<boolean>(true)
   const [enableSplit, setEnableSplit] = useState<boolean>(false)
   const [splitRowCount, setSplitRowCount] = useState<number>(1000)
+  const [splitByColumn, setSplitByColumn] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -125,7 +126,7 @@ export default function Home() {
       setSelectedColumns([...selectedColumns, column])
       setSelectedColumnFormats({
         ...selectedColumnFormats,
-        [column]: 'text' // 기본값은 텍스트
+        [column]: 'general' // 기본값은 일반
       })
     }
   }
@@ -170,7 +171,7 @@ export default function Home() {
     // 현재 선택된 컬럼들의 셀 형식 복사
     const columnFormats: { [key: string]: CellFormat } = {}
     newColumns.forEach(col => {
-      columnFormats[col] = selectedColumnFormats[col] || 'text'
+      columnFormats[col] = selectedColumnFormats[col] || 'general'
     })
 
     // 중복 확인 (같은 컬럼 조합이 이미 있는지)
@@ -259,7 +260,7 @@ export default function Home() {
     // 셀 형식도 함께 적용
     const newFormats: { [key: string]: CellFormat } = {}
     validColumns.forEach(col => {
-      newFormats[col] = macro.columnFormats[col] || 'text'
+      newFormats[col] = macro.columnFormats[col] || 'general'
     })
     setSelectedColumnFormats(newFormats)
 
@@ -299,6 +300,7 @@ export default function Home() {
       formData.append('includeHeader', includeHeader.toString())
       formData.append('enableSplit', enableSplit.toString())
       formData.append('splitRowCount', splitRowCount.toString())
+      formData.append('splitByColumn', splitByColumn)
 
       const response = await fetch('/api/download', {
         method: 'POST',
@@ -393,9 +395,10 @@ export default function Home() {
                   {isSelected && (
                     <select
                       className="column-format-select"
-                      value={selectedColumnFormats[column] || 'text'}
+                      value={selectedColumnFormats[column] || 'general'}
                       onChange={(e) => handleColumnFormatChange(column, e.target.value as CellFormat)}
                     >
+                      <option value="general">일반</option>
                       <option value="text">텍스트</option>
                       <option value="number">숫자</option>
                       <option value="date">날짜</option>
@@ -489,9 +492,10 @@ export default function Home() {
                         <span className="column-name">{column}</span>
                         <select
                           className="column-format-select-small"
-                          value={item.columnFormats[column] || 'text'}
+                          value={item.columnFormats[column] || 'general'}
                           onChange={(e) => handleSplitItemFormatChange(index, column, e.target.value as CellFormat)}
                         >
+                          <option value="general">일반</option>
                           <option value="text">텍스트</option>
                           <option value="number">숫자</option>
                           <option value="date">날짜</option>
@@ -573,6 +577,27 @@ export default function Home() {
               )}
             </div>
           </div>
+
+          {enableSplit && splitList.length > 0 && (
+            <div className="split-by-column-section">
+              <label className="setting-label">구분 컬럼 (선택사항):</label>
+              <select
+                className="setting-select"
+                value={splitByColumn}
+                onChange={(e) => setSplitByColumn(e.target.value)}
+              >
+                <option value="">구분 없음 (전체 데이터 분할)</option>
+                {splitList[0].columns.map((col) => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+              {splitByColumn && (
+                <div className="split-hint">
+                  "{splitByColumn}" 컬럼의 값별로 그룹화한 후, 각 그룹 내에서 {splitRowCount}개씩 분할됩니다.
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             className="download-button"

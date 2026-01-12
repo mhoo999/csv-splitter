@@ -593,6 +593,24 @@ h1 {
   border-color: #1a1a1a;
 }
 
+.split-by-column-section {
+  padding: 1rem;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  margin-bottom: 1.5rem;
+}
+
+.split-hint {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: white;
+  border-left: 3px solid #1a1a1a;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.5;
+}
+
 .download-button {
   background: #1a1a1a;
   color: white;
