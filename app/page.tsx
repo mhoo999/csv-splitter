@@ -543,61 +543,66 @@ export default function Home() {
               </select>
             </div>
 
-            <div className="setting-group">
-              <label className="setting-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="setting-checkbox"
-                  checked={includeHeader}
-                  onChange={(e) => setIncludeHeader(e.target.checked)}
-                />
-                <span>헤더 포함</span>
-              </label>
+            <div className="setting-row">
+              <div className="setting-group">
+                <label className="setting-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={includeHeader}
+                    onChange={(e) => setIncludeHeader(e.target.checked)}
+                  />
+                  <span>헤더 포함</span>
+                </label>
+              </div>
+
+              <div className="setting-group">
+                <label className="setting-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="setting-checkbox"
+                    checked={enableSplit}
+                    onChange={(e) => setEnableSplit(e.target.checked)}
+                  />
+                  <span>분할 출력</span>
+                </label>
+                {enableSplit && (
+                  <input
+                    type="number"
+                    className="split-row-input"
+                    min="1"
+                    value={splitRowCount}
+                    onChange={(e) => setSplitRowCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="행 수"
+                  />
+                )}
+              </div>
             </div>
 
-            <div className="setting-group">
-              <label className="setting-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="setting-checkbox"
-                  checked={enableSplit}
-                  onChange={(e) => setEnableSplit(e.target.checked)}
-                />
-                <span>분할 출력</span>
-              </label>
-              {enableSplit && (
-                <input
-                  type="number"
-                  className="split-row-input"
-                  min="1"
-                  value={splitRowCount}
-                  onChange={(e) => setSplitRowCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  placeholder="행 수"
-                />
-              )}
-            </div>
+            {splitList.length > 0 && (
+              <div className="setting-group">
+                <label className="setting-label">구분 컬럼:</label>
+                <select
+                  className="setting-select"
+                  value={splitByColumn}
+                  onChange={(e) => setSplitByColumn(e.target.value)}
+                >
+                  <option value="">없음</option>
+                  {splitList[0].columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+                {splitByColumn && (
+                  <div className="split-hint">
+                    {enableSplit
+                      ? `"${splitByColumn}" 컬럼의 값별로 그룹화한 후, 각 그룹 내에서 ${splitRowCount}개씩 분할됩니다.`
+                      : `"${splitByColumn}" 컬럼의 값별로 그룹화하여 파일을 생성합니다.`
+                    }
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          {enableSplit && splitList.length > 0 && (
-            <div className="split-by-column-section">
-              <label className="setting-label">구분 컬럼 (선택사항):</label>
-              <select
-                className="setting-select"
-                value={splitByColumn}
-                onChange={(e) => setSplitByColumn(e.target.value)}
-              >
-                <option value="">구분 없음 (전체 데이터 분할)</option>
-                {splitList[0].columns.map((col) => (
-                  <option key={col} value={col}>{col}</option>
-                ))}
-              </select>
-              {splitByColumn && (
-                <div className="split-hint">
-                  "{splitByColumn}" 컬럼의 값별로 그룹화한 후, 각 그룹 내에서 {splitRowCount}개씩 분할됩니다.
-                </div>
-              )}
-            </div>
-          )}
 
           <button
             className="download-button"

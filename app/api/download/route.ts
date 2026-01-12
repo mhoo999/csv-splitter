@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
 
       const dataChunks: DataChunk[] = []
 
-      if (enableSplit && splitRowCount > 0 && splitByColumn && selectedColumns.includes(splitByColumn)) {
-        // 구분 컬럼 기준으로 그룹화 후 분할
+      if (splitByColumn && selectedColumns.includes(splitByColumn)) {
+        // 구분 컬럼 기준으로 그룹화
         const groups: { [key: string]: any[] } = {}
 
         filteredData.forEach((row) => {
@@ -136,15 +136,26 @@ export async function POST(request: NextRequest) {
           groups[groupValue].push(row)
         })
 
-        // 각 그룹 내에서 splitRowCount 크기로 분할
+        // 각 그룹 처리
         Object.keys(groups).forEach((groupName) => {
           const groupData = groups[groupName]
-          for (let i = 0; i < groupData.length; i += splitRowCount) {
-            const chunkIndex = Math.floor(i / splitRowCount)
+
+          if (enableSplit && splitRowCount > 0) {
+            // 각 그룹 내에서 splitRowCount 크기로 분할
+            for (let i = 0; i < groupData.length; i += splitRowCount) {
+              const chunkIndex = Math.floor(i / splitRowCount)
+              dataChunks.push({
+                data: groupData.slice(i, i + splitRowCount),
+                groupName: groupName,
+                chunkIndex: chunkIndex
+              })
+            }
+          } else {
+            // 그룹별로 파일 하나씩
             dataChunks.push({
-              data: groupData.slice(i, i + splitRowCount),
+              data: groupData,
               groupName: groupName,
-              chunkIndex: chunkIndex
+              chunkIndex: 0
             })
           }
         })
@@ -170,9 +181,15 @@ export async function POST(request: NextRequest) {
         let safeFileName = baseFileName
 
         if (chunk.groupName) {
-          // 그룹명이 있으면: 파일명_그룹명_0, 파일명_그룹명_1 형식
           const safeGroupName = chunk.groupName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')
-          safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
+
+          // 그룹 내에서 분할된 경우: 파일명_그룹명_0, 파일명_그룹명_1
+          if (enableSplit && splitRowCount > 0) {
+            safeFileName = `${baseFileName}_${safeGroupName}_${chunk.chunkIndex}`
+          } else {
+            // 그룹별로만 나눈 경우: 파일명_그룹명
+            safeFileName = `${baseFileName}_${safeGroupName}`
+          }
         } else if (dataChunks.length > 1) {
           // 그룹명 없이 분할만: 파일명_0, 파일명_1 형식
           safeFileName = `${baseFileName}_${chunk.chunkIndex}`
