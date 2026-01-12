@@ -517,30 +517,32 @@ export default function Home() {
           </div>
 
           <div className="download-settings">
-            <div className="setting-group">
-              <label className="setting-label">인코딩:</label>
-              <select
-                className="setting-select"
-                value={encoding}
-                onChange={(e) => setEncoding(e.target.value)}
-              >
-                <option value="UTF-8">UTF-8</option>
-                <option value="UTF-8-BOM">UTF-8 (BOM)</option>
-                <option value="EUC-KR">EUC-KR</option>
-                <option value="CP949">CP949</option>
-              </select>
-            </div>
+            <div className="setting-row">
+              <div className="setting-group">
+                <label className="setting-label">인코딩:</label>
+                <select
+                  className="setting-select"
+                  value={encoding}
+                  onChange={(e) => setEncoding(e.target.value)}
+                >
+                  <option value="UTF-8">UTF-8</option>
+                  <option value="UTF-8-BOM">UTF-8 (BOM)</option>
+                  <option value="EUC-KR">EUC-KR</option>
+                  <option value="CP949">CP949</option>
+                </select>
+              </div>
 
-            <div className="setting-group">
-              <label className="setting-label">파일 형식:</label>
-              <select
-                className="setting-select"
-                value={fileFormat}
-                onChange={(e) => setFileFormat(e.target.value)}
-              >
-                <option value="csv">CSV</option>
-                <option value="xlsx">Excel (XLSX)</option>
-              </select>
+              <div className="setting-group">
+                <label className="setting-label">파일 형식:</label>
+                <select
+                  className="setting-select"
+                  value={fileFormat}
+                  onChange={(e) => setFileFormat(e.target.value)}
+                >
+                  <option value="csv">CSV</option>
+                  <option value="xlsx">Excel (XLSX)</option>
+                </select>
+              </div>
             </div>
 
             <div className="setting-row">
