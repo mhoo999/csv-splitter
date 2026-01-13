@@ -703,7 +703,7 @@ export default function Home() {
             다른 서비스 이용해보기
           </a>
           <a
-            href="https://hoons-service-archive.vercel.app/#coffee"
+            href="https://buymeacoffee.com/hoonsdev"
             target="_blank"
             rel="noopener noreferrer"
             className="button-link"
