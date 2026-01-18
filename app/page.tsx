@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, DragEvent, ChangeEvent } from 'react'
+import Script from 'next/script'
 
 type CellFormat = 'general' | 'text' | 'number' | 'date' | 'currency'
 
@@ -48,6 +49,18 @@ export default function Home() {
       } catch (e) {
         console.error('매크로 불러오기 실패:', e)
       }
+    }
+  }, [])
+
+  // hoons-service-footer CSS 로드
+  useEffect(() => {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://hoons-service-footer.vercel.app/footer.css'
+    document.head.appendChild(link)
+
+    return () => {
+      document.head.removeChild(link)
     }
   }, [])
 
@@ -692,29 +705,11 @@ export default function Home() {
         <div className="loading">파일을 분석하는 중...</div>
       )}
 
-      <footer className="footer">
-        <div className="button-group">
-          <a
-            href="https://hoons-service-archive.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="button-link"
-          >
-            다른 서비스 이용해보기
-          </a>
-          <a
-            href="https://hoons-service-archive.vercel.app/#coffee"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="button-link"
-          >
-            개발자 커피 한잔 사주기
-          </a>
-        </div>
-        <div className="email-section">
-          mhoo999@naver.com
-        </div>
-      </footer>
+      <div id="hoons-footer"></div>
+      <Script
+        src="https://hoons-service-footer.vercel.app/footer.js"
+        strategy="afterInteractive"
+      />
     </div>
   )
 }
